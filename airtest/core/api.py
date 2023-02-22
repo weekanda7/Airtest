@@ -4,7 +4,7 @@ This module contains the Airtest Core APIs.
 """
 import os
 import time
-
+from typing import Dict, Tuple
 from six.moves.urllib.parse import parse_qsl, urlparse
 
 from airtest.core.cv import Template, loop_find, try_log_screen
@@ -19,6 +19,7 @@ from airtest.core.assertions import (assert_exists, assert_not_exists, assert_eq
                                         assert_is_none, assert_is_not_none, assert_in, assert_not_in,
                                         assert_is_instance, assert_not_is_instance
                                      )
+import cv2
 
 
 """
@@ -657,6 +658,138 @@ def find_all(v):
     """
     screen = G.DEVICE.snapshot(quality=ST.SNAPSHOT_QUALITY)
     return v.match_all_in(screen)
+    
+@logwrap
+def check_image_recognition( 
+        script_object: object,
+        template_image_name: str,
+        compare_times_counter: int = 1,
+        screenshot_wait_time: float = 0.1,
+        accuracy_val: float = 0.9,
+        is_refresh_screenshot: bool = True,
+        screen_image_name: str = 'tmp0',
+        screen_image_root_dict_key: str = 'tmp_root',
+        screen_image_additional_root: str = '',
+        template_image_root_dict_key: str = 'icon_root',
+        template_image_additional_root: str = '',
+        repeatedly_screenshot_times: int = 1,
+
+        ):
+    
+
+    current_path=script_object.current_path
+    sub_root_dict = script_object.sub_root_dict
+    if repeatedly_screenshot_times <= 1:
+        for _num in range(compare_times_counter):
+            if is_refresh_screenshot:
+                time.sleep(screenshot_wait_time)
+                screen = G.DEVICE.snapshot(filename = '{}{}{}'.format(current_path+'\\' +sub_root_dict[screen_image_root_dict_key],_check_additional_root(screen_image_additional_root),
+                    _check_image_name_pngFormat(screen_image_name)) ,quality=ST.SNAPSHOT_QUALITY)
+            else:
+                screen = cv2.imread('{}{}{}'.format(current_path+'\\' +sub_root_dict[screen_image_root_dict_key],_check_additional_root(screen_image_additional_root),
+                    _check_image_name_pngFormat(screen_image_name)))
+            template = Template(filename = '{}{}{}'.format(current_path+'\\' + sub_root_dict[template_image_root_dict_key],_check_additional_root(template_image_additional_root),
+                _check_image_name_pngFormat(template_image_name)), record_pos=(0.5, 0.5),threshold=accuracy_val)    
+            _result = template.match_all_in(screen)  
+            if _result!=None: 
+                best_result = sorted(_result, key=lambda d: d['result']) 
+                log("check_image_recognition method : template_name={}  prob={:.4f} accuracy_val={:.4f} {}".format(
+                template_image_name, best_result[0]['confidence'], accuracy_val, True), timestamp=time.time())
+                return best_result
+        log("check_image_recognition method : template_name={}   accuracy_val={:.4f} {}".format(
+                    template_image_name,accuracy_val, False), timestamp=time.time())
+        return False 
+    else: 
+        _screen_image_name_list = [f'tmp{x}'for x in range(repeatedly_screenshot_times) ]
+        time.sleep(screenshot_wait_time)
+        for _num in range(compare_times_counter):
+            screen_list = []
+            for _temp_screen_image_name in _screen_image_name_list:
+                screen_list.append( G.DEVICE.snapshot(filename = '{}{}{}'.format(current_path+'\\' +sub_root_dict[screen_image_root_dict_key],_check_additional_root(screen_image_additional_root),
+                        _check_image_name_pngFormat(_temp_screen_image_name)) ,quality=ST.SNAPSHOT_QUALITY))
+           
+            template = Template(filename = '{}{}{}'.format(current_path+'\\' + sub_root_dict[template_image_root_dict_key],_check_additional_root(template_image_additional_root),
+                        _check_image_name_pngFormat(template_image_name)), record_pos=(0.5, 0.5),threshold=accuracy_val)    
+            
+            for screen in  screen_list:
+                _result = template.match_all_in(screen)  
+                if _result!=None: 
+                    best_result = sorted(_result, key=lambda d: d['result']) 
+                    log("check_image_recognition method : template_name={}  prob={:.4f} accuracy_val={:.4f} {}".format(
+                    template_image_name, best_result[0]['confidence'], accuracy_val, True), timestamp=time.time())
+                    return best_result
+        log("check_image_recognition method : template_name={}   accuracy_val={:.4f} {}".format(
+                    template_image_name,accuracy_val, False), timestamp=time.time())
+        return False 
+            
+def adb_default_tap(
+        script_object: object,
+        template_image_name: str,
+        compare_times_counter: int = 1,
+        screenshot_wait_time: float = 0.1,
+        tap_execute_wait_time: float = 0.1,
+        accuracy_val: float = 0.9,
+        is_refresh_screenshot: bool = True,
+        tap_execute_counter_times: int = 1,
+        tap_offset: Tuple[int, int] = (0, 0),
+        screen_image_name: str = 'tmp0',
+        screen_image_root_dict_key: str = 'tmp_root',
+        screen_image_additional_root: str = '',
+        template_image_root_dict_key: str = 'icon_root',
+        template_image_additional_root: str = '',
+        repeatedly_screenshot_times: int=1,
+    ) -> bool:
+        """_summary_ compare device screen with specify image,if image is similar,excute tap fuction and return true ,else return false
+
+        Args:
+            png_name (str): _description_
+            offset (Tuple[int, int], optional): _description_. Defaults to (0,0).
+            wait_time (float, optional): wait time. Defaults to 1.
+            tap_wait_time (float, optional): _description_. Defaults to 0.
+            tap_times (int, optional): _description_. Defaults to 1.
+
+        Returns:
+            bool: _description_
+        """
+
+        _result = check_image_recognition(script_object,
+                                        template_image_name,
+                                        compare_times_counter,
+                                        screenshot_wait_time,
+                                        accuracy_val,
+                                        is_refresh_screenshot,
+                                        screen_image_name,
+                                        screen_image_root_dict_key,
+                                        screen_image_additional_root,
+                                        template_image_root_dict_key,
+                                        template_image_additional_root,
+                                        repeatedly_screenshot_times,
+                                        )
+        
+        if _result!=None: 
+            log(_result[0]['result'])
+            touch(_result[0]['result'])
+            return True
+        else:
+            return False
+                
+
+
+
+def _check_image_name_pngFormat( _input_name: str) -> str:
+    if '.png' in _input_name:
+        return _input_name
+    else:
+        return _input_name + '.png'
+
+def _check_additional_root(_input_name: str) -> str:
+    if _input_name:
+        if _input_name[-1]!='\\' and _input_name[-1]!='/':
+            return _input_name+'/'
+        else:
+            return _input_name
+    return ''
+
 
 
 """
