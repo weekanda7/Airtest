@@ -686,12 +686,14 @@ def setup_sub_root(script_object: object)->Dict[str,str]:
     try:
         _sub_root_dict = script_object.sub_root_dict
     except Exception as e:
+        '''
         _sub_root_dict={
             'tmp_root': 'tmp/',
-            'icon_root': 'icon/script_name/',
+            'icon_root': 'icon/script_icon_file_name/',
             'save_root': 'storage/script_name/',
             'backup_root': 'backup/script_name/',
         }
+        '''
         log(f'setup_sub_root method : sub_root_dict not found, please check your script in follow format \n {_sub_root_dict}',timestamp=time.time())
         
         raise e
@@ -705,6 +707,29 @@ def setup_sub_root(script_object: object)->Dict[str,str]:
     log('setup_sub_root method : create sub root successes',timestamp=time.time())
     return _sub_root_dict
 
+
+def setup_log_file(script_object: object)->None:
+    __author__ = "Airtest"
+    import logging
+    logger = logging.getLogger("airtest")
+    logger.setLevel(logging.INFO)
+    _current_path = script_object.current_path
+    _sub_root_dict = script_object.sub_root_dict
+    _script_name = script_object.script_name
+    _log_file_path = os.path.join(_current_path,_sub_root_dict['log_root'])
+
+    _log_file_name = get_time()+ f'{_script_name}.txt'
+    _log_file_path = os.path.join(_log_file_path, _log_file_name)
+    
+    fh = logging.FileHandler(_log_file_path, encoding='utf-8')
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter(
+            '%(levelname)-6s[%(asctime)s]:%(threadName)s: %(message)s ',
+            datefmt="%H:%M:%S",
+        ))
+    logger.addHandler(fh)
+    logger.info('set log path:'+_log_file_path)
+    
 
 
 @logwrap
