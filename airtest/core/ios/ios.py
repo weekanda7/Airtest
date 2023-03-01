@@ -99,7 +99,7 @@ class IOS(Device):
         # init wda session, updata when start app
         # use to click/swipe/close app/get wda size
         wda.DEBUG = False
-        self.driver = wda.Client(self.addr)
+        self.driver = wda.USBClient(udid, port=8100)
 
         # record device's width
         self._size = {'width': None, 'height': None}
@@ -110,8 +110,8 @@ class IOS(Device):
         self._using_ios_tagent = None
         self._device_info = {}
 
-        info = self.device_info
-        self.instruct_helper = InstructHelper(info['uuid'])
+        #info = self.device_info
+        self.instruct_helper = InstructHelper(udid)
         self.mjpegcap = MJpegcap(self.instruct_helper, ori_function=lambda: self.display_info,
                                  ip=self.ip, port=mjpeg_port)
         # start up RotationWatcher with default session
@@ -219,7 +219,8 @@ class IOS(Device):
                 'isSimulator': False})
         """
         if not self._device_info:
-            self._device_info = self.driver.info
+           self._device_info={'uuid':'00008110-000519A90E69801E'}
+            #self._device_info = self.driver.info
         return self._device_info
 
     def _register_rotation_watcher(self):
