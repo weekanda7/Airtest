@@ -32,7 +32,7 @@ def decorator_retry_session(func):
 
     当因为session失效而操作失败时，尝试重新获取session，最多重试3次
     """
-
+    
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         try:
@@ -94,13 +94,18 @@ class IOS(Device):
         self.cap_method = cap_method
         self.touch_method = TOUCH_METHOD.WDATOUCH
         self.ime_method = IME_METHOD.WDAIME
-
+        
         # wda driver, use to home, start app
         # init wda session, updata when start app
         # use to click/swipe/close app/get wda size
         wda.DEBUG = False
-        self.driver = wda.USBClient(udid, port=8100)
-
+        try:
+            wda.HTTP_TIMEOUT = 5
+            LOGGING.info("if wda raise ReadTimeout, please check if device ios > 15 , open app before wda init")
+            self.driver = wda.USBClient(uuid)
+        except Exception as e:
+            LOGGING.error("wda init error: {}\n{}".format(e))
+            self.driver = self.driver.session()
         # record device's width
         self._size = {'width': None, 'height': None}
         self._current_orientation = None
@@ -109,9 +114,8 @@ class IOS(Device):
         self._is_pad = None
         self._using_ios_tagent = None
         self._device_info = {}
-
-        #info = self.device_info
-        self.instruct_helper = InstructHelper(udid)
+        info = self.device_info
+        self.instruct_helper = InstructHelper(info['uuid'])
         self.mjpegcap = MJpegcap(self.instruct_helper, ori_function=lambda: self.display_info,
                                  ip=self.ip, port=mjpeg_port)
         # start up RotationWatcher with default session
@@ -219,8 +223,7 @@ class IOS(Device):
                 'isSimulator': False})
         """
         if not self._device_info:
-           self._device_info={'uuid':'00008110-000519A90E69801E'}
-            #self._device_info = self.driver.info
+            self._device_info = self.driver.info
         return self._device_info
 
     def _register_rotation_watcher(self):

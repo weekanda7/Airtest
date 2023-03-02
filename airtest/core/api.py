@@ -31,6 +31,7 @@ from airtest.core.assertions import (
 import cv2
 from PIL import Image
 
+from PyQt6.QtGui import QImage, QPixmap
 LOWEST_THRESHOLD = 0.6
 """
 Device Setup APIs
@@ -50,8 +51,12 @@ def init_device(platform="Android", uuid=None, **kwargs):
         >>> init_device(platform="Android",uuid="SJE5T17B17", cap_method="JAVACAP")
         >>> init_device(platform="Windows",uuid="123456")
     """
+    platform = platform.lower()
     cls = import_device_cls(platform)
-    dev = cls(uuid, **kwargs)
+    if platform == "ios":
+        dev = cls(uuid=uuid, **kwargs)
+    else:
+        dev = cls(uuid, **kwargs)
     # Add device instance in G and set as current device.
     G.add_device(dev)
     return dev
@@ -377,6 +382,7 @@ def touch(v, times=1, **kwargs):
     for _ in range(times):
         G.DEVICE.touch(pos, **kwargs)
         time.sleep(0.05)
+        
     delay_after_operation()
     return pos
 
@@ -707,6 +713,24 @@ def setup_sub_root(script_object: object)->Dict[str,str]:
     log('setup_sub_root method : create sub root successes',timestamp=time.time())
     return _sub_root_dict
 
+def _send_log_to_ui(script_object: object, _log_message: str):
+    _ui_label_dict = script_object.pyqt6_ui_label_dict
+    _log_message = _log_message.replace(',','\n').replace(':','\n')
+    if _ui_label_dict:
+        _ui_label_dict['log_label'].setText(_log_message)
+
+def _send_image_path_to_ui(script_object: object, _image_path: str):
+    _ui_label_dict = script_object.pyqt6_ui_label_dict
+    
+    if _ui_label_dict:
+        _pyqt_img = cv2.imread(_image_path)
+        height, width, channel = _pyqt_img.shape
+        bytesPerline = 3 * width
+        _qimg = QImage(_pyqt_img, width, height, bytesPerline,
+                            QImage.Format.Format_RGB888).rgbSwapped()  #type: ignore
+        _ui_label_dict['image_label'].setPixmap(QPixmap.fromImage(_qimg))
+
+
 
 def setup_log_file(script_object: object)->None:
     __author__ = "Airtest"
@@ -750,14 +774,18 @@ def check_image_recognition(
     def _false_log(__result)->None: #need improve
         if __result != None:
             _best_result = sorted(__result, key=lambda d: d['confidence'])
-            log("check_image_recognition method : template_name= {} prob= {:.4f} accuracy_val= {:.4f} result= {}".format(
-                template_image_name, _best_result[-1]['confidence'], accuracy_val, False),
-                timestamp=time.time())
+            _log_message = "check_image_recognition method : template_name= {}, prob= {:.4f}, accuracy_val= {:.4f}, result= {}".format(
+                template_image_name, _best_result[-1]['confidence'], accuracy_val, False)
+            log(_log_message,timestamp=time.time())
+            _send_log_to_ui(script_object, _log_message)
+            _send_image_path_to_ui(script_object,template_image_name)
             _back_up_image(_screen,_result[-1]['confidence'],False)
         else:
-            log("check_image_recognition method : template_name= {} prob= below 0.6 accuracy_val= {:.4f} result= {}".format(
-                template_image_name, accuracy_val, False),
-                timestamp=time.time())
+            _log_message="check_image_recognition method : template_name= {} prob= below 0.6 accuracy_val= {:.4f} result= {}".format(
+                template_image_name, accuracy_val, False)
+            log(_log_message,timestamp=time.time())
+            _send_log_to_ui(script_object, _log_message)
+            _send_image_path_to_ui(script_object,template_image_name)
             _back_up_image(_screen,'below_0.6',False)
     def _back_up_image(__screen,__confidence,__result) -> None:   
         if _is_backup_image :
@@ -783,9 +811,10 @@ def check_image_recognition(
             if _result != None:
                 _best_result = sorted(_result, key=lambda d: d['confidence'])
                 if _best_result[-1]['confidence'] > accuracy_val:
-                    log("check_image_recognition method : template_name= {} prob= {:.4f} accuracy_val= {:.4f} result= {}".
-                        format(template_image_name, _best_result[-1]['confidence'], accuracy_val, True),
-                        timestamp=time.time())
+                    _log_message = "check_image_recognition method : template_name= {}, prob= {:.4f}, accuracy_val= {:.4f}, result= {}".format(template_image_name, _best_result[-1]['confidence'], accuracy_val, True)
+                    log(_log_message,timestamp=time.time())
+                    _send_log_to_ui(script_object, _log_message)
+                    _send_image_path_to_ui(script_object,_template_image_path)
                     _back_up_image(_screen,_best_result[-1]['confidence'],True)
                     return _best_result
         _false_log(_result)
